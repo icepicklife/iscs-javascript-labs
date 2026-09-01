@@ -4,10 +4,61 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title></title>
-    link
   </head>
   <body>
     <div id="app">
     </div>
+
+    <script src="orgs.json"></script>
+    <script>
+      
+      function generateOrgList(orgStrings){
+
+        const org_unordered = document.createElement('ul');
+
+        for (const org of orgStrings) {
+
+          const listed = document.createElement('li');
+          listed.textContent = org;
+          org_unordered.appendChild(listed);
+
+        }
+
+        return org_unordered;
+      }
+
+      function generateHeader(fullName, acronym){
+
+        const head2 = document.createElement('h2');
+        head2.textContent = fullName + ' ';
+
+        const spans = document.createElement('span');
+        spans.textContent = `(${acronym})`;
+
+        head2.appendChild(spans);
+        return head2;
+
+      }
+
+      function generateClusterDiv(clusters){
+
+        const cluster_div = document.createElement('div');
+
+        cluster_div.appendChild(generateHeader(clusters.full_name, clusters.acronym));
+        cluster_div.appendChild(generateOrgList(clusters.orgs));
+
+        document.getElementById('app').appendChild(cluster_div);
+
+      }
+
+      for (const index in orgLists) {
+        for (const cluster_group of orgLists[index]) {
+
+          generateClusterDiv(cluster_group);
+
+        }
+      }
+
+    </script>
   </body>
 </html>
