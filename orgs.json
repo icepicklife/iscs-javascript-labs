@@ -1,0 +1,60 @@
+{
+  "clusters": [
+    {
+      'acronym': 'adc',
+      'full_name': 'Analysis and Discourse Cluster',
+      'orgs': [
+        "ADS", "AEA", "AEuSS", "APAIR",
+        "Assembly", "DevSoc Ateneo", "ENTABLADO"
+      ]
+    },
+    {
+      'acronym': 'stc',
+      'full_name': 'Science and Technology Cluster',
+      'orgs': [
+        "ACheS", "AECES", "AMS", "Ateneo BOx",
+        "CompSAt", "LeaPs", "MISA", "Psyche"
+      ]
+    },
+    {
+      'acronym': 'cop',
+      'full_name': 'Council of Publications',
+      'orgs: '[
+        "HEIGHTS",
+        "Matanglawin Ateneo",
+        "TGDN"
+      ]
+    },
+    {
+      'acronym': 'bc',
+      'full_name': 'Business Cluster',
+      'orgs': [
+        "AIESEC", "ALex", "AMA", "Ateneo ACTM",
+        "Ateneo MACA", "Ateneo MEA", "BCG", "MEcO"
+      ]
+    },
+    {
+      'acronym': 'ffc',
+      'full_name': 'Faith Formation Cluster',
+      'orgs': [
+        "ACIL", "ACLC", "ACMG",
+        "AtSCA", "YFC-A"
+      ]
+    },
+    {
+      'acronym': 'hec',
+      'full_name': 'Health and Evnironment Cluster',
+      'orgs': [
+        "AESS", "HSS", "LM",
+        "PMSA", "Peers"
+      ]
+    },
+    {
+      'acronym': 'pac',
+      'full_name': 'Performing Arts Cluster',
+      'orgs': [
+        "ACGC", "CADs", "TA", "blueREP"
+      ]
+    }
+  ]
+}
