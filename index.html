@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>Search Products</title>
+    <style>
+        :root {
+            --line: #d8d8d8;
+            --muted: #5a5a5a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, Arial, sans-serif;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 24px 16px 64px;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 16px;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        #searchInput {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 1rem;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+        }
+
+        button {
+            padding: 8px 14px;
+            font-size: 0.95rem;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover:not(:disabled) {
+            background: #f2f2f2;
+        }
+
+        button:disabled {
+            color: #9a9a9a;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin: 12px 0;
+            color: var(--muted);
+        }
+
+        #status:empty {
+            display: none;
+        }
+
+        .product {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .product h2 {
+            font-size: 1.15rem;
+            margin: 0 0 8px;
+        }
+
+        .field {
+            margin: 4px 0;
+        }
+
+        .field .label {
+            color: var(--muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .panel:not(:empty) {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--line);
+        }
+
+        .panel-heading {
+            font-weight: 600;
+            margin: 0 0 4px;
+        }
+
+        .line {
+            margin: 2px 0;
+        }
+
+        .related-group {
+            margin-top: 28px;
+        }
+
+        .related-group h2 {
+            font-size: 1.2rem;
+            margin: 0 0 12px;
+        }
+
+        .related-block {
+            margin-bottom: 16px;
+        }
+
+        .related-block h3 {
+            font-size: 1rem;
+            margin: 0 0 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Search Product</h1>
+
+    <div class="search-bar">
+        <input id="searchInput" type="text" placeholder="Enter a product keyword" />
+        <button id="searchButton" type="button">Search</button>
+    </div>
+
+    <p id="status"></p>
+    <div id="results"></div>
+    <div id="related"></div>
+
+    <script>
+        const BASE_LINK = "https://dummyjson.com";
+        const MAX_RELATED = 3;
+
+        const DETAIL_FIELDS = [
+
+            ["Brand", "brand"],
+            ["Stock", "stock"],
+            ["Warranty", "warrantyInformation"],
+            ["Shipping", "shippingInformation"]
+
+        ];
+
+        const searchInput = document.getElementById("searchInput");
+        const searchButton = document.getElementById("searchButton");
+        const status_element = document.getElementById("status");
+        const results_element = document.getElementById("results");
+        const related_element = document.getElementById("related");
+
+        let matchedProducts = [];
+        let brand_IdxCache = null;
+        let latest_searchId = 0;
+
+        searchButton.addEventListener("click", runSearch);
+
+        searchInput.addEventListener("keydown", function (event) {
+
+            if (event.key === "Enter") {
+                runSearch();
+            }
+        });
+
+        results_element.addEventListener("click", onResultsClick);
+
+        function onResultsClick(event) {
+
+            const button = event.target.closest("button[data-action]");
+            if (!button) return;
+
+            const section = button.closest("section[data-product-id]");
+            if (!section) return;
+
+            const product = matchedProducts.find(function (item) {
+                return String(item.id) === section.dataset.productId;
+            });
+
+            if (!product) return;
+
+            if (button.dataset.action === "reviews") {
+                showReviews(section, product);
+            } else {
+                showDetails(section, product);
+            }
+
+            button.disabled = true;
+        }
+
+        async function runSearch() {
+            const keyword = searchInput.value.trim();
+            const searchId = ++latest_searchId;
+
+            clearOutput();
+
+            if (keyword === '') {
+                setStatus("Enter a product keyword to search.");
+                return;
+            }
+
+            setStatus("Searching...");
+            searchButton.disabled = true;
+
+            try {
+                const searchData = await fetchJson(
+                    BASE_LINK + "/products/search?q=" + encodeURIComponent(keyword)
+                );
+
+                if (searchId !== latest_searchId) return;
+
+                const products = searchData.products || [];
+
+                if (products.length === 0) {
+                    setStatus("Product does not exist.");
+                    return;
+                }
+
+                const relatedSections = await buildRelatedSections(products);
+                if (searchId !== latest_searchId) return;
+
+                matchedProducts = products;
+                setStatus("");
+                renderProducts(products);
+                renderRelated(relatedSections);
+            } catch (error) {
+                if (searchId !== latest_searchId) return;
+                console.error(error);
+                setStatus("Could not reach the product API. Check your connection and search again.");
+            } finally {
+                if (searchId === latest_searchId ) {
+                    searchButton.disabled = false;
+                }
+            }
+        }
+
+        async function fetchJson(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error("Request failed (" + response.status + "): " + url);
+            }
+            return response.json();
+        }
+
+        function renderProducts(products) {
+
+            products.forEach(function (product) {
+                const section = document.createElement("section");
+                section.className = "product";
+                section.dataset.productId = String(product.id);
+
+                const title = document.createElement("h2");
+                title.textContent = product.title;
+                section.appendChild(title);
+
+                section.appendChild(field("Category", product.category));
+                section.appendChild(field("Price", "$" + product.price));
+                section.appendChild(field("Description", product.description));
+
+                const actions = document.createElement("div");
+                actions.className = "actions";
+                actions.appendChild(actionButton("Show Reviews", "reviews"));
+                actions.appendChild(actionButton("Show Details", "details"));
+                section.appendChild(actions);
+
+                section.appendChild(panel("reviews"));
+                section.appendChild(panel("details"));
+
+                results_element.appendChild(section);
+            });
+        }
+
+        function actionButton(label, action) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = label;
+            button.dataset.action = action;
+            return button;
+        }
+
+        function panel(name) {
+            const div = document.createElement("div");
+            div.className = "panel";
+            div.dataset.panel = name;
+            return div;
+        }
+
+        function showReviews(section, product) {
+            const box = section.querySelector('[data-panel="reviews"]');
+            box.textContent = "";
+            box.appendChild(heading("Reviews:"));
+
+            const reviews = Array.isArray(product.reviews) ? product.reviews : [];
+
+            if (reviews.length === 0) {
+                box.appendChild(line("No reviews available."));
+                return;
+            }
+
+            reviews.forEach(function (review) {
+                box.appendChild(
+                    line(review.reviewerName + " (" + review.rating + "\u2605): " + review.comment)
+                );
+            });
+        }
+
+        function showDetails(section, product) {
+            const box = section.querySelector('[data-panel="details"]');
+            box.textContent = '';
+            box.appendChild(heading("Details:"));
+
+            DETAIL_FIELDS.forEach(function (entry) {
+                const label = entry[0];
+                const value = product[entry[1]];
+
+                box.appendChild(
+                    line(label + ": " + (hasValue(value) ? value : "No details available"))
+                );
+            });
+        }
+
+        function hasValue(value) {
+            return value !== undefined && value !== null && String(value).trim() !== "";
+        }
+
+        async function buildRelatedSections(products) {
+            const shownIds = new Set(products.map(function (p) { return p.id; }));
+            const categories = distinct(products.map(function (p) { return p.category; }));
+            const brands = distinct(products.map(function (p) { return p.brand; }));
+
+            const categoryRequests = categories.map(async function (category) {
+                const data = await fetchJson(
+                    BASE_LINK + "/products/category/" + encodeURIComponent(category) + "?limit=0&select=title"
+                );
+
+                return {
+                    kind: "category",
+                    label: category,
+                    titles: pickTitles(data.products || [], shownIds)
+                };
+            });
+
+            const brandRequest = brands.length === 0
+                ? Promise.resolve([])
+                : loadBrandIndex().then(function (index) {
+                    return brands.map(function (brand) {
+                        const sameBrand = index.filter(function (item) {
+                            return item.brand === brand;
+                        });
+                        return {
+                            kind: "brand",
+                            label: brand,
+                            titles: pickTitles(sameBrand, shownIds)
+                        };
+                    });
+                });
+            
+            const results = await Promise.all([
+                Promise.all(categoryRequests),
+                brandRequest
+            ]);
+
+            return results[0].concat(results[1]);
+        }
+
+        async function loadBrandIndex() {
+            if (!brand_IdxCache) {
+                const data = await fetchJson(BASE_LINK + "/products?limit=0&select=title,brand");
+                brand_IdxCache = data.products || [];
+            }
+            return brand_IdxCache;
+        }
+
+        function distinct(values) {
+            const cleaned = values.filter(function (value) {
+                return typeof value === "string" && value.trim() !== "";
+            });
+            return Array.from(new Set(cleaned));
+        }
+
+        function pickTitles(products, shownIds) {
+            return products
+                .filter(function (p) { return !shownIds.has(p.id); })
+                .slice(0, MAX_RELATED)
+                .map(function (p) { return p.title; });
+        }
+
+        function renderRelated(sections) {
+            const groups = [
+                { kind: "category", heading: "More in this Category", prefix: "More in " },
+                { kind: "brand", heading: "More from this Brand", prefix: "More from " }
+            ];
+
+            groups.forEach(function (group) {
+                const items = sections.filter(function (s) { return s.kind === group.kind; });
+
+                const wrapper = document.createElement("section");
+                wrapper.className = "related-group";
+
+                const groupHeading = document.createElement("h2");
+                groupHeading.textContent = group.heading;
+                wrapper.appendChild(groupHeading);
+
+                if (items.length === 0) {
+                    wrapper.appendChild(line("No related products available."));
+                } else {
+                    items.forEach (function (item) {
+                        const block = document.createElement("div");
+                        block.className = "related-block";
+
+                        const blockHeading = document.createElement("h3");
+                        blockHeading.textContent = group.prefix + item.label;
+                        block.appendChild(blockHeading);
+
+                        if (item.titles.length === 0) {
+                            block.appendChild(line("No related products available."));
+                        } else {
+                            item.titles.forEach(function (title) {
+                                block.appendChild(line(title));
+                            });
+                        }
+
+                        wrapper.appendChild(block);
+                    });
+                }
+
+                related_element.appendChild(wrapper);
+            });
+        }
+
+        function field(label, value) {
+            const p = document.createElement("p");
+            p.className = "field";
+
+            const label_element = document.createElement("span");
+            label_element.className = "label";
+            label_element.textContent = label + ": ";
+
+            p.appendChild(label_element);
+            p.appendChild(document.createTextNode(String(value)));
+            return p;
+        }
+
+        function heading(text) {
+            const p = document.createElement("p");
+            p.className = "panel-heading";
+            p.textContent = text;
+            return p;
+        }
+
+        function line(text) {
+            const p = document.createElement("p");
+            p.className = "line";
+            p.textContent = text;
+            return p;
+        }
+
+        function setStatus(text) {
+            status_element.textContent = text;
+        }
+
+        function clearOutput() {
+            related_element.textContent = "";
+            results_element.textContent = "";
+            status_element.textContent = "";
+            matchedProducts = [];
+        }
+
+    </script>
+</body>
+
+</html>
