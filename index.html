@@ -132,7 +132,7 @@
 </head>
 
 <body>
-    <h1>Search Product</h1>
+    <h1>Search a Product</h1>
 
     <div class="search-bar">
         <input id="searchInput" type="text" placeholder="Enter a product keyword" />
@@ -147,6 +147,7 @@
         const BASE_LINK = "https://dummyjson.com";
         const MAX_RELATED = 3;
 
+        // mapping labels visible to the user in accordance to the namings in the JSON
         const DETAIL_FIELDS = [
 
             ["Brand", "brand"],
@@ -162,12 +163,14 @@
         const results_element = document.getElementById("results");
         const related_element = document.getElementById("related");
 
-        let matchedProducts = [];
-        let brand_IdxCache = null;
-        let latest_searchId = 0;
+        let matchedProducts = []; // storage array for products found
+        let brand_IdxCache = null; // for linking title and brand
+        let latest_searchId = 0;   // guard for out-of-order search responses
 
+        // click to search
         searchButton.addEventListener("click", runSearch);
 
+        // press enter to search
         searchInput.addEventListener("keydown", function (event) {
 
             if (event.key === "Enter") {
@@ -175,8 +178,10 @@
             }
         });
 
+        // add after results' button events from collected event handler
         results_element.addEventListener("click", onResultsClick);
 
+        // event handlers for the specific buttons after results
         function onResultsClick(event) {
 
             const button = event.target.closest("button[data-action]");
@@ -199,6 +204,8 @@
 
             button.disabled = true;
         }
+
+        // overall logical flow when running a search
 
         async function runSearch() {
             const keyword = searchInput.value.trim();
@@ -246,6 +253,8 @@
             }
         }
 
+        // base function on retrieving the url outputs
+
         async function fetchJson(url) {
             const response = await fetch(url);
             if (!response.ok) {
@@ -253,6 +262,8 @@
             }
             return response.json();
         }
+
+        // for building the products being searched
 
         function renderProducts(products) {
 
@@ -334,6 +345,8 @@
         function hasValue(value) {
             return value !== undefined && value !== null && String(value).trim() !== "";
         }
+
+        // for building the related sections
 
         async function buildRelatedSections(products) {
             const shownIds = new Set(products.map(function (p) { return p.id; }));
@@ -439,6 +452,8 @@
                 related_element.appendChild(wrapper);
             });
         }
+
+        // -- helper functions in creating the lines, headings, and fields
 
         function field(label, value) {
             const p = document.createElement("p");
