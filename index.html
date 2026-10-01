@@ -149,6 +149,9 @@
         const BASE_LINK = "https://dummyjson.com";
         const MAX_RELATED = 3;
 
+        const searchAudio = new Audio("iphone_original.mp3");
+        searchAudio.volume = 0.7;
+
         // mapping labels visible to the user in accordance to the namings in the JSON
         const DETAIL_FIELDS = [
 
@@ -200,20 +203,28 @@
 
             if (button.dataset.action === "reviews") {
                 showReviews(section, product);
-            } else {
+                button.disabled = true;
+            } else if (button.dataset.action === "details"){
                 showDetails(section, product);
+                button.disabled = true;
+            } else if (button.dataset.action === "copy"){
+                copyDetails(product, button);
             }
 
-            button.disabled = true;
         }
 
         // overall logical flow when running a search
 
         async function runSearch() {
             const keyword = searchInput.value.trim();
+
+            if (keyword !== '') {
+                localStorage.setItem('lastSearch', keyword);
+            }
             const searchId = ++latest_searchId;
 
             clearOutput();
+            playSearchTone();
 
             if (keyword === '') {
                 setStatus("Enter a product keyword to search.");
@@ -286,6 +297,7 @@
                 actions.className = "actions";
                 actions.appendChild(actionButton("Show Reviews", "reviews"));
                 actions.appendChild(actionButton("Show Details", "details"));
+                actions.appendChild(actionButton("Copy Details", "copy"));
                 section.appendChild(actions);
 
                 section.appendChild(panel("reviews"));
@@ -484,8 +496,40 @@
             return p;
         }
 
+        function copyDetails(product, button) {
+            const lines = DETAIL_FIELDS.map(function (entry) {
+                const label = entry[0];
+                const value = product[entry[1]];
+                return label + ": " + (hasValue(value) ? value : "No details available");
+            });
+
+            const text = [product.title].concat(lines).join("\n");
+
+            navigator.clipboard.writeText(text).then(function () {
+                const original = button.textContent;
+                button.textContent = "Content Copied!";
+                setTimeout(function () {
+                    button.textContent = original;
+                }, 1500);
+            }).catch(function (err) {
+                console.error("Clipboard write failed:", err);
+                alert("Could not copy to clipboard. Please try again.");
+            });
+        }
+
         function setStatus(text) {
             status_element.textContent = text;
+        }
+
+        function playSearchTone() {
+            searchAudio.pause();
+            searchAudio.currentTime = 0;
+            searchAudio.play();
+
+            setTimeout(function () {
+                searchAudio.pause();
+                searchAudio.currentTime = 0;
+            }, 5000);
         }
 
         function clearOutput() {
@@ -494,6 +538,14 @@
             status_element.textContent = "";
             matchedProducts = [];
         }
+
+        (function restoreLastSearch() {
+            const saved = localStorage.getItem('lastSearch');
+            if (saved) {
+                searchInput.value = saved;
+                runSearch();
+            }
+        })();
 
     </script>
 </body>
